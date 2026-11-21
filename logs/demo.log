@@ -1,0 +1,84 @@
+18:19:38.574  Primary   running at http://127.0.0.1:8001  (pid 31604)
+18:19:38.575  Secondary running at http://127.0.0.1:8002  (pid 28104)
+18:19:38.576  Simulated replication lag: 1.0s per update
+
+18:19:38.615  ==================================================================
+18:19:38.615  TEST 1 - REPLICATION (Primary -> Secondary)
+18:19:38.615  ==================================================================
+18:19:38.615  Initial state:
+18:19:38.625    read primary   -> stock=10  (v1)
+18:19:38.640    read secondary -> stock=10  (v1)
+18:19:38.640  PASS  both replicas start at stock=10
+18:19:38.640  Client tries to write to the Secondary (should be refused):
+18:19:38.660    write secondary  -> HTTP 403: writes must go to the primary
+18:19:38.660  PASS  Secondary rejects client writes; all writes go to the Primary
+18:19:38.660  Client writes stock=12 to the Primary:
+18:19:38.677    write primary    -> accepted stock=12 (v2)
+18:19:38.696    read primary   -> stock=12  (v2)
+18:19:38.696  PASS  Primary has the new value 12 immediately
+18:19:38.696  Polling the Secondary until the update arrives:
+18:19:38.710    read secondary -> stock=10  (v1)
+18:19:38.964    read secondary -> stock=10  (v1)
+18:19:39.241    read secondary -> stock=10  (v1)
+18:19:39.517    read secondary -> stock=10  (v1)
+18:19:39.793    read secondary -> stock=12  (v2)
+18:19:39.793  PASS  Secondary eventually received 12 (after 1.10s)
+18:19:39.808    read primary   -> stock=12  (v2)
+18:19:39.825    read secondary -> stock=12  (v2)
+18:19:39.825  PASS  both replicas return stock=12 at the same version v2 - replication complete
+18:19:39.826  Reset to stock=10 (also replicated) so the next test starts from 10:
+18:19:39.857    read secondary -> stock=12  (v2)
+18:19:40.113    read secondary -> stock=12  (v2)
+18:19:40.377    read secondary -> stock=12  (v2)
+18:19:40.632    read secondary -> stock=12  (v2)
+18:19:40.910    read secondary -> stock=10  (v3)
+18:19:40.914    read primary   -> stock=10  (v3)
+18:19:40.928    read secondary -> stock=10  (v3)
+18:19:40.928  PASS  both replicas back at stock=10
+
+18:19:42.584  ==================================================================
+18:19:42.584  TEST 2 - STALE READ (replication to Secondary delayed)
+18:19:42.584  ==================================================================
+18:19:42.607  Replication paused -> replication=PAUSED
+18:19:42.607  Client writes stock=9 to the Primary:
+18:19:42.626    write primary    -> accepted stock=9 (v4)
+18:19:42.626  Reading both replicas several times over 3 seconds (3x the normal lag):
+18:19:42.641    read primary   -> stock=9  (v4)
+18:19:42.660    read secondary -> stock=10  (v3)
+18:19:42.661  PASS  [1/4] Primary returns 9 (latest value)
+18:19:42.661  PASS  [1/4] Secondary returns 10 -> STALE READ (v3 vs primary v4)
+18:19:43.676    read primary   -> stock=9  (v4)
+18:19:43.694    read secondary -> stock=10  (v3)
+18:19:43.694  PASS  [2/4] Primary returns 9 (latest value)
+18:19:43.695  PASS  [2/4] Secondary returns 10 -> STALE READ (v3 vs primary v4)
+18:19:44.709    read primary   -> stock=9  (v4)
+18:19:44.725    read secondary -> stock=10  (v3)
+18:19:44.725  PASS  [3/4] Primary returns 9 (latest value)
+18:19:44.726  PASS  [3/4] Secondary returns 10 -> STALE READ (v3 vs primary v4)
+18:19:45.742    read primary   -> stock=9  (v4)
+18:19:45.747    read secondary -> stock=10  (v3)
+18:19:45.747  PASS  [4/4] Primary returns 9 (latest value)
+18:19:45.747  PASS  [4/4] Secondary returns 10 -> STALE READ (v3 vs primary v4)
+18:19:45.774    primary status   -> replication=PAUSED, pending_updates=1, secondary_acked_version=v3
+18:19:45.774  PASS  the update to 9 is still queued on the Primary, not lost
+
+18:19:47.218  ==================================================================
+18:19:47.218  TEST 3 - RECOVERY AND CONVERGENCE (replication resumed)
+18:19:47.218  ==================================================================
+18:19:47.225  Replication resumed -> replication=running
+18:19:47.227  Polling the Secondary until it catches up:
+18:19:47.242    read secondary -> stock=10  (v3)
+18:19:47.511    read secondary -> stock=10  (v3)
+18:19:47.776    read secondary -> stock=10  (v3)
+18:19:48.043    read secondary -> stock=10  (v3)
+18:19:48.310    read secondary -> stock=9  (v4)
+18:19:48.311  PASS  Secondary eventually updated to 9 (after 1.08s)
+18:19:48.328    read primary   -> stock=9  (v4)
+18:19:48.344    read secondary -> stock=9  (v4)
+18:19:48.344  PASS  both replicas return stock=9 at version v4 - CONVERGED
+18:19:48.348    primary status   -> replication=running, pending_updates=0, secondary_acked_version=v4
+18:19:48.348  PASS  replication queue drained; Secondary acknowledged the latest version
+
+18:19:48.348  ==================================================================
+18:19:48.348  ALL TESTS PASSED
+18:19:48.348  ==================================================================
